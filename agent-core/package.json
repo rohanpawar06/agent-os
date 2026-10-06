@@ -1,0 +1,31 @@
+{
+  "name": "agent-core",
+  "version": "1.0.0",
+  "description": "AgentOS kernel with Ollama planning and MCP capability execution",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "npm run build --prefix ../mcp-servers/filesystem && tsc",
+    "typecheck": "tsc --noEmit && npm run typecheck --prefix ../mcp-servers/filesystem",
+    "preagent": "npm run build --prefix ../mcp-servers/filesystem",
+    "agent": "tsx src/cli.ts",
+    "prestart": "npm run build --prefix ../mcp-servers/filesystem",
+    "start": "node dist/cli.js",
+    "mcp:check": "npm run build --prefix ../mcp-servers/filesystem && tsx src/mcp/test-client.ts"
+  },
+  "keywords": [
+    "agentos",
+    "ollama",
+    "mcp"
+  ],
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "agent-os",
+  "version": "1.0.0",
+  "description": "Local-first AgentOS kernel with Ollama planning and MCP capabilities",
+  "main": "index.js",
+  "directories": { "doc": "docs" },
+  "scripts": {
+    "build": "npm run build --prefix ./agent-core",
+    "typecheck": "npm run typecheck --prefix ./agent-core",
+    "agent": "npm run agent --prefix ./agent-core --"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/rohanpawar06/agent-os.git" },
+  "keywords": ["agents", "ollama", "mcp"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "undici-types": "^8.3.0"
+  }
+}
