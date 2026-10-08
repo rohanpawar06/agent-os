@@ -25,7 +25,11 @@ export function Topbar({ activeView, onNavigate }: {
   const [dismissedCount, setDismissedCount] = useState(0);
   const events = useEventStore((state) => state.events);
   const messages = useAgentStore((state) => state.messages);
-  const tools = useAgentStore((state) => state.capabilities.flatMap((capability) => capability.tools));
+  const capabilities = useAgentStore((state) => state.capabilities);
+  const tools = useMemo(
+    () => capabilities.flatMap((capability) => capability.tools),
+    [capabilities],
+  );
   const tasks = useTaskStore((state) => state.tasks);
   const agent = useAgentStore((state) => state.agent);
   const recentEvents = events.slice(0, 6);

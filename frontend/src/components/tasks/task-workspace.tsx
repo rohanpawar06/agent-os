@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 
 import { useTaskStore } from "@/stores";
+import { useAgentStore } from "@/stores";
+import { runAgentRequest } from "@/lib/agent/agent-client";
 
 import type {
   AgentTask,
@@ -43,6 +45,9 @@ export function TaskWorkspace() {
       (state) =>
         state.setActiveTask,
     );
+
+  const isChatLoading = useAgentStore((state) => state.isChatLoading);
+  const isPaused = useAgentStore((state) => state.isPaused);
 
   const activeTask =
     tasks.find(
@@ -123,7 +128,12 @@ export function TaskWorkspace() {
 
       <section className="flex min-w-0 flex-1 flex-col">
 
-        <TaskHeader task={activeTask} />
+        <TaskHeader
+          task={activeTask}
+          onRun={() => void runAgentRequest(activeTask.description)}
+          isRunning={isChatLoading}
+          isPaused={isPaused}
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto">
 
@@ -214,8 +224,14 @@ function TaskListItem({
 
 function TaskHeader({
   task,
+  onRun,
+  isRunning,
+  isPaused,
 }: {
   task: AgentTask;
+  onRun: () => void;
+  isRunning: boolean;
+  isPaused: boolean;
 }) {
   return (
     <header className="shrink-0 border-b border-[#202733] bg-[#0b1016]">
@@ -257,10 +273,13 @@ function TaskHeader({
 
           <button
             type="button"
-            className="flex h-8 items-center gap-2 rounded-lg border border-[#202733] bg-[#0e131a] px-3 text-[10px] text-[#8b95a5] hover:bg-[#151b24]"
+            onClick={onRun}
+            disabled={isRunning || isPaused}
+            title={isPaused ? "Resume AgentOS before running this task." : "Run this task again."}
+            className="flex h-8 items-center gap-2 rounded-lg border border-[#202733] bg-[#0e131a] px-3 text-[10px] text-[#8b95a5] hover:bg-[#151b24] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Play size={11} />
-            Run
+            {isRunning ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
+            {isRunning ? "Running…" : "Run again"}
           </button>
 
         </div>

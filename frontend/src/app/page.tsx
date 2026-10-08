@@ -11,7 +11,7 @@ import { FileExplorer } from "@/components/pages/file-explorer";
 import { OverviewPage } from "@/components/pages/overview-page";
 import { TaskWorkspace } from "@/components/tasks/task-workspace";
 import { apiUrl } from "@/lib/api";
-import { useAgentStore } from "@/stores";
+import { useAgentStore, useEventStore, useTaskStore } from "@/stores";
 import type { WorkspaceView } from "@/types/workspace";
 
 interface StatusResponse {
@@ -24,6 +24,12 @@ interface StatusResponse {
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState<WorkspaceView>("agent");
+
+  useEffect(() => {
+    void useAgentStore.persist.rehydrate();
+    void useEventStore.persist.rehydrate();
+    void useTaskStore.persist.rehydrate();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
