@@ -3,6 +3,7 @@ export * from "./message";
 export * from "./task";
 export * from "./activity";
 export * from "./artifact";
+export * from "./workspace";
 export * from "./capability";
 export * from "./events";
 export * from "./event-data";

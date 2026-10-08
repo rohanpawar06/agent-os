@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 import type { AgentEvent } from "@/types";
 
@@ -23,7 +24,7 @@ interface EventStore {
 }
 
 export const useEventStore =
-  create<EventStore>((set, get) => ({
+  create<EventStore>()(persist((set, get) => ({
     events: [],
 
     addEvent: (event) =>
@@ -49,4 +50,8 @@ export const useEventStore =
 
     getRecentEvents: (limit = 20) =>
       get().events.slice(0, limit),
+  }), {
+    name: "agentos-event-state",
+    partialize: (state) => ({ events: state.events.slice(0, 100) }),
+    skipHydration: true,
   }));

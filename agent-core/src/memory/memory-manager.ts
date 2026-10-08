@@ -68,4 +68,8 @@ export class MemoryManager {
   async list(): Promise<MemoryRecord[]> {
     return this.store.list();
   }
+
+  async clear(): Promise<void> {
+    await this.store.clear();
+  }
 }

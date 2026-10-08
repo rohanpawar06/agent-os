@@ -4,13 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   Brain,
-  CheckCircle2,
   Paperclip,
   Sparkles,
   User,
 } from "lucide-react";
 
-import { runMockAgent } from "@/lib/agent/mock-agent";
+import { runAgentRequest } from "@/lib/agent/agent-client";
 import { useAgentStore } from "@/stores";
 
 export function ChatWindow() {
@@ -18,6 +17,7 @@ export function ChatWindow() {
 
   const textareaRef =
     useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef =
     useRef<HTMLDivElement>(null);
@@ -31,6 +31,8 @@ export function ChatWindow() {
     useAgentStore(
       (state) => state.isChatLoading,
     );
+
+  const isPaused = useAgentStore((state) => state.isPaused);
 
   const agent =
     useAgentStore(
@@ -64,6 +66,7 @@ export function ChatWindow() {
 
     if (
       !trimmedMessage ||
+      isPaused ||
       isChatLoading
     ) {
       return;
@@ -71,7 +74,7 @@ export function ChatWindow() {
 
     setMessage("");
 
-    await runMockAgent(
+    await runAgentRequest(
       trimmedMessage,
     );
 
@@ -82,6 +85,21 @@ export function ChatWindow() {
     setTimeout(() => {
       textareaRef.current?.focus();
     }, 50);
+  }
+
+  async function handleAttachment(file?: File): Promise<void> {
+    if (!file) return;
+    if (file.size > 300_000) {
+      setMessage((current) => `${current}${current ? "\n\n" : ""}[${file.name} is over the 300 KB text-file limit]`);
+      return;
+    }
+    const supportedText = file.type.startsWith("text/") || /\.(txt|md|csv|json|xml|html|css|js|ts|tsx|py|log)$/i.test(file.name);
+    if (!supportedText) {
+      setMessage((current) => `${current}${current ? "\n\n" : ""}[${file.name} is not a supported text file]`);
+      return;
+    }
+    const content = await file.text();
+    setMessage((current) => `${current}${current ? "\n\n" : ""}Attached file: ${file.name}\n\n${content}`);
   }
 
   /*
@@ -131,6 +149,7 @@ export function ChatWindow() {
                     currentMessage.content
                   }
                   isUser={isUser}
+                  metadata={currentMessage.metadata}
                 />
               );
             },
@@ -185,8 +204,19 @@ export function ChatWindow() {
             {/* Bottom controls */}
 
             <div className="absolute bottom-3 left-3 flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="text/*,.txt,.md,.csv,.json,.xml,.html,.css,.js,.ts,.tsx,.py,.log"
+                className="hidden"
+                onChange={(event) => {
+                  void handleAttachment(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
               <button
                 type="button"
+                onClick={() => fileInputRef.current?.click()}
                 disabled={isChatLoading}
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-[#626d7d] transition hover:bg-[#171d27] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                 title="Attach file"
@@ -195,7 +225,7 @@ export function ChatWindow() {
               </button>
 
               <span className="text-[10px] text-[#626d7d]">
-                MCP tools available
+                {isPaused ? "Paused · resume to send" : "Local model and workspace tools"}
               </span>
             </div>
 
@@ -208,6 +238,7 @@ export function ChatWindow() {
               }
               disabled={
                 !message.trim() ||
+                isPaused ||
                 isChatLoading
               }
               className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#7c6cff] text-white transition hover:bg-[#8b7fff] disabled:cursor-not-allowed disabled:opacity-30"
@@ -252,10 +283,15 @@ function Message({
   role,
   content,
   isUser,
+  metadata,
 }: {
   role: string;
   content: string;
   isUser: boolean;
+  metadata?: {
+    model?: string;
+    tool?: string;
+  };
 }) {
   /*
    * System/tool messages can be
@@ -313,33 +349,12 @@ function Message({
           {content}
         </div>
 
-        {/* MCP indicator */}
-
-        <div className="mt-4 rounded-xl border border-[#202733] bg-[#0e131a] p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#17152a]">
-              <Paperclip
-                size={14}
-                className="text-[#9185ff]"
-              />
-            </div>
-
-            <div>
-              <div className="text-xs font-medium">
-                Agent capabilities
-              </div>
-
-              <div className="mt-0.5 text-[10px] text-[#626d7d]">
-                MCP tools available
-              </div>
-            </div>
-
-            <div className="ml-auto flex items-center gap-1 text-[10px] text-[#45c89a]">
-              <CheckCircle2 size={12} />
-              Connected
-            </div>
+        {(metadata?.model || metadata?.tool) && (
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[#626d7d]">
+            {metadata.model && <span>Model: {metadata.model}</span>}
+            {metadata.tool && <span>Tools used: {metadata.tool}</span>}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

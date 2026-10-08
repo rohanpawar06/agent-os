@@ -1,0 +1,26 @@
+server:
+  address: 127.0.0.1
+  port: ${AGENTOS_BACKEND_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: agentos-backend
+  lifecycle:
+    timeout-per-shutdown-phase: 10s
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+agentos:
+  ollama-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
+  default-model: ${OLLAMA_MODEL:qwen2.5}
+  workspace-path: ${AGENTOS_WORKSPACE_PATH:}
+  desktop-path: ${AGENTOS_DESKTOP_PATH:}
+  data-dir: ${AGENTOS_DATA_DIR:}
+  request-timeout-seconds: ${AGENTOS_LLM_TIMEOUT_SECONDS:120}
+
+logging:
+  level:
+    com.agentos: INFO

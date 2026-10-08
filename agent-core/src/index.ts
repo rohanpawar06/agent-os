@@ -12,4 +12,5 @@ export * from "./execution/executor.js";
 export * from "./execution/observer.js";
 export * from "./execution/recovery-manager.js";
 export * from "./memory/memory-manager.js";
+export * from "./memory/persistent-memory-store.js";
 export * from "./mcp/client.js";

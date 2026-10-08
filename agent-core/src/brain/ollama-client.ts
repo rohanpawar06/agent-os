@@ -1,5 +1,5 @@
 export interface OllamaMessage {
-  role: "system" | "user";
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -9,7 +9,7 @@ interface OllamaChatResponse {
 
 export class OllamaClient {
   readonly baseUrl: string;
-  readonly model: string;
+  model: string;
 
   constructor(
     baseUrl = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434",
@@ -17,8 +17,23 @@ export class OllamaClient {
     private readonly timeoutMs = parsePositiveInteger(process.env.AGENTOS_LLM_TIMEOUT_MS, 120_000),
   ) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
-    this.model = model;
-    if (!this.model.trim()) throw new Error("OLLAMA_MODEL cannot be empty.");
+    this.model = this.validateModel(model);
+  }
+
+  setModel(model: string): void {
+    this.model = this.validateModel(model);
+  }
+
+  async listModels(signal?: AbortSignal): Promise<string[]> {
+    const response = await fetch(`${this.baseUrl}/api/tags`, {
+      headers: { accept: "application/json" },
+      signal: signal ?? AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) throw new Error(`Ollama returned HTTP ${response.status} while listing models.`);
+    const result = await response.json() as { models?: Array<{ name?: unknown }> };
+    return (result.models ?? [])
+      .map((model) => model.name)
+      .filter((name): name is string => typeof name === "string");
   }
 
   async chatJson(messages: OllamaMessage[], signal?: AbortSignal): Promise<string> {
@@ -54,6 +69,12 @@ export class OllamaClient {
       clearTimeout(timeout);
       signal?.removeEventListener("abort", abortFromCaller);
     }
+  }
+
+  private validateModel(model: string): string {
+    const normalized = model.trim();
+    if (!normalized) throw new Error("OLLAMA_MODEL cannot be empty.");
+    return normalized;
   }
 }
 

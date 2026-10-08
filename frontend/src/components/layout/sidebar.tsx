@@ -12,43 +12,53 @@ import {
   Terminal,
   Wrench,
 } from "lucide-react";
+import type { WorkspaceView } from "@/types/workspace";
 
-const navigation = [
+const navigation: Array<{ label: string; icon: typeof LayoutDashboard; view: WorkspaceView }> = [
   {
     label: "Overview",
     icon: LayoutDashboard,
+    view: "overview",
   },
   {
     label: "Agent",
     icon: Bot,
-    active: true,
+    view: "agent",
   },
   {
     label: "Projects",
     icon: FolderKanban,
+    view: "projects",
   },
   {
     label: "Tasks",
     icon: Terminal,
+    view: "tasks",
   },
 ];
 
-const intelligence = [
+const intelligence: Array<{ label: string; icon: typeof Brain; view: WorkspaceView }> = [
   {
     label: "Memory",
     icon: Brain,
+    view: "memory",
   },
   {
     label: "Capabilities",
     icon: Sparkles,
+    view: "capabilities",
   },
   {
     label: "Tools",
     icon: Wrench,
+    view: "tools",
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ activeView, onNavigate }: {
+  activeView: WorkspaceView;
+  onNavigate: (view: WorkspaceView) => void;
+}) {
   return (
     <aside className="flex h-screen w-[250px] shrink-0 flex-col border-r border-[#202733] bg-[#0a0d12]">
       {/* Logo */}
@@ -81,8 +91,11 @@ export function Sidebar() {
             return (
               <button
                 key={item.label}
+                type="button"
+                onClick={() => onNavigate(item.view)}
+                aria-current={activeView === item.view ? "page" : undefined}
                 className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
-                  item.active
+                  activeView === item.view
                     ? "bg-[#141928] text-white"
                     : "text-[#8b95a5] hover:bg-[#11161f] hover:text-white"
                 }`}
@@ -90,7 +103,7 @@ export function Sidebar() {
                 <Icon
                   size={17}
                   className={
-                    item.active
+                    activeView === item.view
                       ? "text-[#9185ff]"
                       : "text-[#687384] group-hover:text-[#aab3c1]"
                   }
@@ -98,7 +111,7 @@ export function Sidebar() {
 
                 <span>{item.label}</span>
 
-                {item.active && (
+                {activeView === item.view && (
                   <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#7c6cff]" />
                 )}
               </button>
@@ -119,7 +132,10 @@ export function Sidebar() {
             return (
               <button
                 key={item.label}
-                className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[#8b95a5] transition hover:bg-[#11161f] hover:text-white"
+                type="button"
+                onClick={() => onNavigate(item.view)}
+                aria-current={activeView === item.view ? "page" : undefined}
+                className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-[#11161f] hover:text-white ${activeView === item.view ? "bg-[#141928] text-white" : "text-[#8b95a5]"}`}
               >
                 <Icon
                   size={17}
@@ -135,12 +151,12 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div className="border-t border-[#202733] p-3">
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#8b95a5] transition hover:bg-[#11161f] hover:text-white">
+        <button type="button" onClick={() => onNavigate("security")} aria-current={activeView === "security" ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition hover:bg-[#11161f] hover:text-white ${activeView === "security" ? "bg-[#141928] text-white" : "text-[#8b95a5]"}`}>
           <ShieldCheck size={17} />
           Security
         </button>
 
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#8b95a5] transition hover:bg-[#11161f] hover:text-white">
+        <button type="button" onClick={() => onNavigate("settings")} aria-current={activeView === "settings" ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition hover:bg-[#11161f] hover:text-white ${activeView === "settings" ? "bg-[#141928] text-white" : "text-[#8b95a5]"}`}>
           <Settings size={17} />
           Settings
         </button>

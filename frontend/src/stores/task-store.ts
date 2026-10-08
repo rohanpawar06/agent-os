@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 import type {
   AgentTask,
@@ -50,187 +51,11 @@ interface TaskStore {
   getActiveTask: () => AgentTask | undefined;
 }
 
-const initialTask: AgentTask = {
-  id: "task-workspace-analysis",
-
-  title: "Analyze my workspace",
-
-  description:
-    "Inspect the AgentOS workspace, understand the current project structure, identify available capabilities, and report the current state.",
-
-  status: "completed",
-
-  priority: "normal",
-
-  createdAt: new Date(
-    Date.now() - 1000 * 60 * 12,
-  ).toISOString(),
-
-  startedAt: new Date(
-    Date.now() - 1000 * 60 * 11,
-  ).toISOString(),
-
-  completedAt: new Date(
-    Date.now() - 1000 * 60 * 2,
-  ).toISOString(),
-
-  progress: 100,
-
-  currentStepId:
-    "step-workspace-report",
-
-  workspace:
-    "C:\\Users\\rohan\\agent-os\\workspace",
-
-  steps: [
-    {
-      id: "step-understand",
-
-      taskId:
-        "task-workspace-analysis",
-
-      title: "Understand request",
-
-      description:
-        "Interpret the user's request and determine what information is required.",
-
-      type: "reasoning",
-
-      status: "completed",
-
-      startedAt: new Date(
-        Date.now() - 1000 * 60 * 11,
-      ).toISOString(),
-
-      completedAt: new Date(
-        Date.now() - 1000 * 60 * 10,
-      ).toISOString(),
-
-      durationMs: 1800,
-
-      result:
-        "Workspace inspection is required.",
-    },
-
-    {
-      id: "step-plan",
-
-      taskId:
-        "task-workspace-analysis",
-
-      title: "Create execution plan",
-
-      description:
-        "Build a sequence of operations required to inspect the workspace.",
-
-      type: "reasoning",
-
-      status: "completed",
-
-      startedAt: new Date(
-        Date.now() - 1000 * 60 * 10,
-      ).toISOString(),
-
-      completedAt: new Date(
-        Date.now() - 1000 * 60 * 9,
-      ).toISOString(),
-
-      durationMs: 2100,
-
-      result:
-        "Inspection plan created successfully.",
-    },
-
-    {
-      id: "step-filesystem",
-
-      taskId:
-        "task-workspace-analysis",
-
-      title: "Inspect workspace",
-
-      description:
-        "Use the connected Filesystem MCP capability to inspect the workspace.",
-
-      type: "mcp",
-
-      status: "completed",
-
-      tool: "create_directory",
-
-      mcpServer: "Filesystem MCP",
-
-      startedAt: new Date(
-        Date.now() - 1000 * 60 * 8,
-      ).toISOString(),
-
-      completedAt: new Date(
-        Date.now() - 1000 * 60 * 7,
-      ).toISOString(),
-
-      durationMs: 4200,
-
-      result:
-        "Workspace inspection completed successfully.",
-    },
-
-    {
-      id: "step-report",
-
-      taskId:
-        "task-workspace-analysis",
-
-      title: "Generate workspace report",
-
-      description:
-        "Summarize the discovered project structure and available capabilities.",
-
-      type: "verification",
-
-      status: "completed",
-
-      startedAt: new Date(
-        Date.now() - 1000 * 60 * 6,
-      ).toISOString(),
-
-      completedAt: new Date(
-        Date.now() - 1000 * 60 * 5,
-      ).toISOString(),
-
-      durationMs: 3200,
-
-      result:
-        "Workspace contains AgentOS project modules and MCP infrastructure.",
-    },
-  ],
-
-  artifacts: [
-    {
-      id: "artifact-workspace-report",
-
-      taskId:
-        "task-workspace-analysis",
-
-      name: "workspace-report.md",
-
-      type: "report",
-
-      path:
-        "workspace/workspace-report.md",
-
-      createdAt: new Date(
-        Date.now() - 1000 * 60 * 4,
-      ).toISOString(),
-    },
-  ],
-};
-
 export const useTaskStore =
-  create<TaskStore>((set, get) => ({
-    tasks: [initialTask],
+  create<TaskStore>()(persist((set, get) => ({
+    tasks: [],
 
-    activeTaskId:
-      initialTask.id,
+    activeTaskId: null,
 
     createTask: (task) =>
       set((state) => ({
@@ -342,4 +167,8 @@ export const useTaskStore =
           task.id === activeTaskId,
       );
     },
+  }), {
+    name: "agentos-task-state",
+    partialize: (state) => ({ tasks: state.tasks, activeTaskId: state.activeTaskId }),
+    skipHydration: true,
   }));

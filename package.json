@@ -5,8 +5,12 @@
   "main": "index.js",
   "directories": { "doc": "docs" },
   "scripts": {
-    "build": "npm run build --prefix ./agent-core",
-    "typecheck": "npm run typecheck --prefix ./agent-core",
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run build --prefix ./agent-core && mvn -f backend/pom.xml package && npm run build --prefix ./frontend",
+    "typecheck": "npm run typecheck --prefix ./agent-core && mvn -f backend/pom.xml -DskipTests compile && npm run typecheck --prefix ./frontend",
+    "backend:dev": "mvn -f backend/pom.xml spring-boot:run",
+    "backend:build": "mvn -f backend/pom.xml package",
+    "backend:test": "mvn -f backend/pom.xml test",
     "agent": "npm run agent --prefix ./agent-core --"
   },
   "repository": { "type": "git", "url": "git+https://github.com/rohanpawar06/agent-os.git" },

@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 import type {
   Agent,
@@ -89,9 +90,9 @@ interface AgentStore {
   // -----------------------------
 
   runtime: {
-    reasoning: "ready" | "active" | "waiting";
-    memory: "connected" | "searching" | "error";
-    mcp: "connected" | "connecting" | "error";
+    reasoning: "ready" | "active" | "waiting" | "error";
+    memory: "connected" | "searching" | "disconnected" | "error";
+    mcp: "connected" | "connecting" | "disconnected" | "error";
   };
 
   setRuntime: (
@@ -116,7 +117,7 @@ const defaultAgent: Agent = {
   name: "AgentOS Core",
   status: "idle",
   mode: "autonomous",
-  model: "AgentOS",
+  model: "qwen2.5:latest",
   description:
     "Autonomous intelligence environment",
 };
@@ -126,31 +127,13 @@ const initialMessages: ChatMessage[] = [
     id: "welcome",
     role: "assistant",
     content:
-      "Hello! I am AgentOS Core. I can reason about tasks, use connected capabilities, work with your workspace, remember context, and execute multi-step workflows.",
+      "Hi! I can answer questions with your local Qwen model and carry out supported file and folder actions in the AgentOS workspace or Desktop folder.",
     createdAt: new Date().toISOString(),
   },
 ];
 
-const initialCapabilities: Capability[] = [
-  {
-    id: "filesystem-mcp",
-    name: "Filesystem MCP",
-    description:
-      "Tool provider for workspace filesystem operations.",
-    status: "connected",
-    type: "mcp",
-    tools: [
-      {
-        name: "create_directory",
-        description:
-          "Create a directory inside the AgentOS workspace.",
-      },
-    ],
-  },
-];
-
-export const useAgentStore = create<AgentStore>(
-  (set) => ({
+export const useAgentStore = create<AgentStore>()(
+  persist((set) => ({
     // -----------------------------
     // Agent
     // -----------------------------
@@ -269,8 +252,7 @@ export const useAgentStore = create<AgentStore>(
     // Capabilities
     // -----------------------------
 
-    capabilities:
-      initialCapabilities,
+    capabilities: [],
 
     setCapabilities: (
       capabilities,
@@ -303,9 +285,9 @@ export const useAgentStore = create<AgentStore>(
     // -----------------------------
 
     runtime: {
-      reasoning: "ready",
-      memory: "connected",
-      mcp: "connected",
+      reasoning: "waiting",
+      memory: "disconnected",
+      mcp: "disconnected",
     },
 
     setRuntime: (updates) =>
@@ -333,5 +315,13 @@ export const useAgentStore = create<AgentStore>(
       set({
         isPaused: paused,
       }),
+  }), {
+    name: "agentos-chat-state",
+    partialize: (state) => ({
+      messages: state.messages,
+      activities: state.activities,
+      artifacts: state.artifacts,
+    }),
+    skipHydration: true,
   }),
 );

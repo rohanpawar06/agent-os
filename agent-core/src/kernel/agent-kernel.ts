@@ -20,6 +20,7 @@ import { Observer } from "../execution/observer.js";
 import { RecoveryManager } from "../execution/recovery-manager.js";
 import { MCPClient } from "../mcp/client.js";
 import { MemoryManager } from "../memory/memory-manager.js";
+import { JsonFileMemoryStore } from "../memory/persistent-memory-store.js";
 import { ExecutionController } from "./execution-controller.js";
 import { GoalManager } from "./goal-manager.js";
 import { Lifecycle } from "./lifecycle.js";
@@ -47,6 +48,7 @@ export class AgentKernel {
   private readonly lifecycle: Lifecycle;
   private readonly mcpClient: MCPClient;
   private readonly planner: PlannerContract;
+  private readonly ollama: OllamaClient;
   private readonly controller: ExecutionController;
   private state: AgentState = { status: "idle", observations: [] };
   private running = false;
@@ -55,12 +57,12 @@ export class AgentKernel {
     this.events = options.events ?? new EventBus();
     this.goals = new GoalManager(this.events);
     this.tasks = new TaskManager(this.events);
-    this.memory = options.memory ?? new MemoryManager();
+    this.memory = options.memory ?? new MemoryManager(new JsonFileMemoryStore());
     this.capabilities = new CapabilityRegistry();
     this.lifecycle = new Lifecycle(this.events);
     this.mcpClient = options.mcpClient ?? new MCPClient();
-    const ollama = options.ollamaClient ?? new OllamaClient();
-    this.planner = options.planner ?? new Planner(ollama);
+    this.ollama = options.ollamaClient ?? new OllamaClient();
+    this.planner = options.planner ?? new Planner(this.ollama);
 
     const router = new CapabilityRouter(this.capabilities, this.mcpClient);
     const executor = new Executor(router);
@@ -101,6 +103,19 @@ export class AgentKernel {
       ...(this.state.currentStep ? { currentStep: cloneStep(this.state.currentStep) } : {}),
       observations: this.state.observations.map(cloneObservation),
     };
+  }
+
+  setModel(model: string): void {
+    this.ollama.setModel(model);
+    if (this.planner instanceof Planner) this.planner.setModel(model);
+  }
+
+  getMemories() {
+    return this.memory.list();
+  }
+
+  clearMemories(): Promise<void> {
+    return this.memory.clear();
   }
 
   async run(message: string, options: RunOptions = {}): Promise<AgentResult> {

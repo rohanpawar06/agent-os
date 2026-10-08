@@ -34,6 +34,10 @@ export class Planner implements PlannerContract {
 
   constructor(private readonly ollama: OllamaClient = new OllamaClient()) {}
 
+  setModel(model: string): void {
+    this.ollama.setModel(model);
+  }
+
   async createPlan(
     request: AgentRequest,
     capabilities: CapabilityDefinition[],
@@ -134,34 +138,61 @@ export class Planner implements PlannerContract {
 
     if ((normalized.includes("create") || normalized.includes("make")) && /\b(directory|folder)\b/.test(normalized)) {
       tool = "create_directory";
-      const name = quoted ?? message.match(/(?:directory|folder)\s+(?:called|named)\s+([\w./\\-]+)/i)?.[1]
+      const name = quoted ?? message.match(/(?:directory|folder)[\s\S]{0,80}?\bname(?:d)?\s+(?:is|as|=)\s+["']?([\w./\\-]+)/i)?.[1]
+        ?? message.match(/(?:directory|folder)\s+(?:called|named)\s+([\w./\\-]+)/i)?.[1]
         ?? message.match(/(?:directory|folder)\s+([\w./\\-]+)/i)?.[1]
         ?? message.match(/create\s+([\w./\\-]+)\s+(?:directory|folder)/i)?.[1];
       if (!name) return [];
-      input = { name };
+      input = { name: prefixDesktopPath(name, message) };
       title = "Create directory";
     } else if ((normalized.includes("create") || normalized.includes("write")) && normalized.includes("file")) {
       tool = "write_file";
       const filePath = this.extractPath(message);
       if (!filePath) return [];
-      const content = message.match(/(?:content|containing|with)\s+["']([\s\S]*?)["']/i)?.[1] ?? "";
-      input = { path: filePath, content };
+      const content = extractFileContent(message);
+      input = { path: prefixDesktopPath(filePath, message), content };
       title = "Write file";
     } else if (normalized.includes("read") && normalized.includes("file")) {
       tool = "read_file";
       const filePath = this.extractPath(message);
       if (!filePath) return [];
-      input = { path: filePath };
+      input = { path: prefixDesktopPath(filePath, message) };
       title = "Read file";
     } else if (normalized.includes("list") && /\b(directory|folder|workspace|files)\b/.test(normalized)) {
       tool = "list_directory";
-      input = { path: quoted ?? message.match(/(?:directory|folder)\s+([\w./\\-]+)/i)?.[1] ?? "." };
+      input = { path: prefixDesktopPath(quoted ?? message.match(/(?:directory|folder)\s+([\w./\\-]+)/i)?.[1] ?? ".", message) };
       title = "List directory";
-    } else if (normalized.includes("delete") && normalized.includes("file")) {
-      tool = "delete_file";
+    } else if (normalized.includes("copy") && /\b(file|folder|directory)\b/.test(normalized)) {
+      tool = "copy_path";
+      const [source, destination] = this.extractSourceAndDestination(message) ?? [];
+      if (!source || !destination) return [];
+      input = {
+        source: prefixDesktopPath(source, message),
+        destination: prefixDesktopPath(destination, message),
+      };
+      title = "Copy file or folder";
+    } else if ((normalized.includes("move") || normalized.includes("rename")) && /\b(file|folder|directory)\b/.test(normalized)) {
+      tool = "move_path";
+      const [source, destination] = this.extractSourceAndDestination(message) ?? [];
+      if (!source || !destination) return [];
+      input = {
+        source: prefixDesktopPath(source, message),
+        destination: prefixDesktopPath(destination, message),
+      };
+      title = normalized.includes("rename") ? "Rename file or folder" : "Move file or folder";
+    } else if (normalized.includes("search") && /\b(file|folder|directory|workspace|desktop)\b/.test(normalized)) {
+      tool = "search_files";
+      const query = quoted ?? message.match(/(?:named|called|for|containing)\s+["']?([\w.-]+)/i)?.[1];
+      if (!query) return [];
+      input = { path: prefixDesktopPath(".", message), query };
+      title = "Search files and folders";
+    } else if (normalized.includes("delete") && /\b(file|folder|directory)\b/.test(normalized)) {
+      tool = normalized.includes("folder") || normalized.includes("directory") ? "delete_path" : "delete_file";
       const filePath = this.extractPath(message);
-      if (!filePath) return [];
-      input = { path: filePath };
+      const folderPath = quoted ?? message.match(/(?:folder|directory)\s+(?:named|called)?\s*["']?([\w./\\-]+)/i)?.[1];
+      const targetPath = filePath ?? folderPath;
+      if (!targetPath) return [];
+      input = { path: prefixDesktopPath(targetPath, message) };
       title = "Delete file";
     }
 
@@ -169,11 +200,33 @@ export class Planner implements PlannerContract {
     return [{ id: crypto.randomUUID(), title, description: message, status: "pending", tool, input }];
   }
 
+  private extractSourceAndDestination(message: string): [string, string] | undefined {
+    const quoted = [...message.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]);
+    if (quoted.length >= 2) return [quoted[0], quoted[1]];
+
+    const match = message.match(/(?:copy|move|rename)\s+(?:the\s+)?(?:file|folder|directory)?\s*([\w./\\-]+)\s+(?:to|as|into)\s+([\w./\\-]+)/i);
+    return match ? [match[1], match[2]] : undefined;
+  }
+
   private extractPath(message: string): string | undefined {
     const quotedFile = message.match(/["']([^"']+\.[a-zA-Z0-9]+)["']/)?.[1];
     const file = quotedFile ?? message.match(/([\w./\\-]+\.[a-zA-Z0-9]+)/)?.[1];
     return file?.replace(/\\/g, "/");
   }
+}
+
+function extractFileContent(message: string): string {
+  const quoted = message.match(/(?:content|containing|with|text|say(?:ing)?)\s+(?:like\s+)?["']([\s\S]*?)["']/i)?.[1];
+  if (quoted !== undefined) return quoted;
+  const clauses = [...message.matchAll(/\b(?:content|text)\s+(?:is\s+|like\s+|:\s*)?/gi)];
+  const lastClause = clauses.at(-1);
+  if (!lastClause || lastClause.index === undefined) return "";
+  return message.slice(lastClause.index + lastClause[0].length).trim().replace(/[.!?]+$/, "");
+}
+
+function prefixDesktopPath(value: string, message: string): string {
+  if (!/\bdesktop\b/i.test(message) || /^desktop(?:\/|$)/i.test(value)) return value;
+  return value === "." ? "Desktop/" : `Desktop/${value.replace(/^\.\//, "")}`;
 }
 
 function parsePositiveInteger(value: string | undefined, fallback: number): number {

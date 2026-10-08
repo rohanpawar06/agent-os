@@ -288,6 +288,19 @@ function getEventConfig(
           "border-[#1d4438] bg-[#10221d]",
       };
 
+    case "agent.error":
+      return {
+        title: "Agent error",
+        icon: (
+          <XCircle
+            size={13}
+            className="text-[#ef7272]"
+          />
+        ),
+        iconContainer:
+          "border-[#4a2727] bg-[#241414]",
+      };
+
     case "tool.started":
       return {
         title: "Tool execution",
@@ -477,6 +490,9 @@ function getEventDescription(
 
     case "agent.completed":
       return "Agent finished the current operation.";
+
+    case "agent.error":
+      return typeof data?.message === "string" ? data.message : "The request failed.";
 
     case "tool.started":
       return "Tool execution started.";
