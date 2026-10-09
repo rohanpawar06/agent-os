@@ -12,18 +12,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.agentos.service.FileSystemService;
+import com.agentos.security.AgentOsAccessPolicy;
 
 @RestController
 @RequestMapping("/api/files")
 public class FileController {
     private final FileSystemService fileSystem;
+    private final AgentOsAccessPolicy accessPolicy;
 
-    public FileController(FileSystemService fileSystem) {
+    public FileController(FileSystemService fileSystem, AgentOsAccessPolicy accessPolicy) {
         this.fileSystem = fileSystem;
+        this.accessPolicy = accessPolicy;
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> list(@RequestParam(defaultValue = ".") String path) throws Exception {
+        accessPolicy.require("filesystem.list_directory");
         return Map.of("success", true, "tool", "list_directory", "data", fileSystem.listDirectory(path));
     }
 

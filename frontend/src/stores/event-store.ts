@@ -1,9 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { AgentEvent } from "@/types";
+import { getAgentOsBrowserStorage } from "@/lib/api";
 
 interface EventStore {
   events: AgentEvent[];
@@ -52,6 +53,7 @@ export const useEventStore =
       get().events.slice(0, limit),
   }), {
     name: "agentos-event-state",
+    storage: createJSONStorage(() => getAgentOsBrowserStorage()),
     partialize: (state) => ({ events: state.events.slice(0, 100) }),
     skipHydration: true,
   }));

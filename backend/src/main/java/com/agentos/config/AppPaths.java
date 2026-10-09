@@ -10,18 +10,23 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.agentos.security.TenantContext;
+
 @Component
 public class AppPaths {
     private final Path workspace;
     private final Path desktop;
     private final Path dataDirectory;
+    private final boolean tenantMode;
 
     public AppPaths(
             @Value("${agentos.workspace-path:}") String configuredWorkspace,
             @Value("${agentos.desktop-path:}") String configuredDesktop,
-            @Value("${agentos.data-dir:}") String configuredDataDirectory) {
+            @Value("${agentos.data-dir:}") String configuredDataDirectory,
+            @Value("${agentos.auth.mode:local}") String authMode) {
+        this.tenantMode = "tenant".equalsIgnoreCase(authMode.trim());
         this.workspace = resolveWorkspace(configuredWorkspace);
-        this.desktop = resolveDesktop(configuredDesktop);
+        this.desktop = tenantMode ? Path.of(".").toAbsolutePath().normalize() : resolveDesktop(configuredDesktop);
         this.dataDirectory = resolveDataDirectory(configuredDataDirectory);
     }
 
@@ -35,6 +40,31 @@ public class AppPaths {
 
     public Path dataDirectory() {
         return dataDirectory;
+    }
+
+    public Path currentWorkspace() {
+        if (!tenantMode) return workspace;
+        return currentTenantDirectory().resolve("workspace").normalize();
+    }
+
+    public Path currentDataDirectory() {
+        return tenantMode ? currentTenantDirectory() : dataDirectory;
+    }
+
+    public boolean tenantMode() {
+        return tenantMode;
+    }
+
+    private Path currentTenantDirectory() {
+        String tenantId = TenantContext.tenantId();
+        if (!tenantId.matches("[A-Za-z0-9_-]{1,64}")) {
+            throw new IllegalStateException("The authenticated tenant identifier is invalid.");
+        }
+        Path tenantDirectory = dataDirectory.resolve("tenants").resolve(tenantId).toAbsolutePath().normalize();
+        if (!tenantDirectory.startsWith(dataDirectory)) {
+            throw new IllegalStateException("The authenticated tenant directory escaped the data root.");
+        }
+        return tenantDirectory;
     }
 
     private static Path resolveWorkspace(String configured) {

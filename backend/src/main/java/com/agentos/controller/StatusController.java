@@ -12,6 +12,8 @@ import com.agentos.service.FileSystemService;
 import com.agentos.service.MemoryService;
 import com.agentos.service.OllamaService;
 import com.agentos.service.SettingsService;
+import com.agentos.service.CapabilityCatalogService;
+import com.agentos.security.AgentOsAccessPolicy;
 
 @RestController
 @RequestMapping("/api/status")
@@ -20,12 +22,17 @@ public class StatusController {
     private final FileSystemService fileSystem;
     private final MemoryService memory;
     private final SettingsService settings;
+    private final CapabilityCatalogService capabilities;
+    private final AgentOsAccessPolicy accessPolicy;
 
-    public StatusController(OllamaService ollama, FileSystemService fileSystem, MemoryService memory, SettingsService settings) {
+    public StatusController(OllamaService ollama, FileSystemService fileSystem, MemoryService memory, SettingsService settings,
+                            CapabilityCatalogService capabilities, AgentOsAccessPolicy accessPolicy) {
         this.ollama = ollama;
         this.fileSystem = fileSystem;
         this.memory = memory;
         this.settings = settings;
+        this.capabilities = capabilities;
+        this.accessPolicy = accessPolicy;
     }
 
     @GetMapping
@@ -45,14 +52,18 @@ public class StatusController {
         ollamaStatus.put("connected", ollamaConnected);
         ollamaStatus.put("availableModels", models);
         ollamaStatus.put("modelAvailable", modelAvailable);
-        if (ollamaError != null) ollamaStatus.put("error", ollamaError);
-        ollamaStatus.put("baseUrl", ollama.baseUrl());
+        if (ollamaError != null) ollamaStatus.put("error", accessPolicy.tenantMode() ? "The configured model service is unavailable." : ollamaError);
+        ollamaStatus.put("baseUrl", accessPolicy.tenantMode() ? "configured model service" : ollama.baseUrl());
         return Map.of(
                 "success", true,
                 "apiVersion", 1,
                 "model", model,
                 "ollama", ollamaStatus,
-                "filesystem", Map.of("connected", true, "roots", fileSystem.roots(), "tools", fileSystem.tools()),
+                "filesystem", Map.of("connected", true,
+                        "roots", accessPolicy.tenantMode() ? List.of("private workspace") : fileSystem.roots(),
+                        "tools", fileSystem.tools()),
+                "capabilities", capabilities.list(),
+                "security", capabilities.security(),
                 "memory", Map.of("connected", true, "storage", "local file", "records", memory.list().size()),
                 "checkedAt", Instant.now().toString());
     }

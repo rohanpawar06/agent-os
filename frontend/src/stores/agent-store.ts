@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 import type {
   Agent,
@@ -12,6 +12,7 @@ import type {
   Capability,
   Artifact,
 } from "@/types";
+import { getAgentOsBrowserStorage } from "@/lib/api";
 
 interface AgentStore {
   // -----------------------------
@@ -127,7 +128,7 @@ const initialMessages: ChatMessage[] = [
     id: "welcome",
     role: "assistant",
     content:
-      "Hi! I can answer questions with your local Qwen model and carry out supported file and folder actions in the AgentOS workspace or Desktop folder.",
+      "Hi! I can answer questions with the configured model and work with the files, documents, and spreadsheets available to your AgentOS account.",
     createdAt: new Date().toISOString(),
   },
 ];
@@ -317,6 +318,7 @@ export const useAgentStore = create<AgentStore>()(
       }),
   }), {
     name: "agentos-chat-state",
+    storage: createJSONStorage(() => getAgentOsBrowserStorage()),
     partialize: (state) => ({
       messages: state.messages,
       activities: state.activities,

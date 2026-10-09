@@ -18,15 +18,16 @@ import com.agentos.config.AppPaths;
 
 @Service
 public class MemoryService {
-    private final Path memoryFile;
+    private final AppPaths paths;
     private final ObjectMapper objectMapper;
 
     public MemoryService(AppPaths paths, ObjectMapper objectMapper) {
-        this.memoryFile = paths.dataDirectory().resolve("memory.json");
+        this.paths = paths;
         this.objectMapper = objectMapper;
     }
 
     public synchronized List<MemoryRecord> list() {
+        Path memoryFile = memoryFile();
         if (!Files.isRegularFile(memoryFile)) return List.of();
         try {
             return objectMapper.readValue(memoryFile.toFile(), new TypeReference<List<MemoryRecord>>() { });
@@ -44,6 +45,7 @@ public class MemoryService {
     }
 
     public synchronized void clear() {
+        Path memoryFile = memoryFile();
         try {
             Files.deleteIfExists(memoryFile);
         } catch (IOException exception) {
@@ -59,6 +61,7 @@ public class MemoryService {
     }
 
     private void write(List<MemoryRecord> records) {
+        Path memoryFile = memoryFile();
         Path temporary = memoryFile.resolveSibling(memoryFile.getFileName() + ".tmp");
         try {
             Files.createDirectories(memoryFile.getParent());
@@ -72,6 +75,10 @@ public class MemoryService {
             try { Files.deleteIfExists(temporary); } catch (IOException ignored) { }
             throw new IllegalStateException("AgentOS could not save local memory.", exception);
         }
+    }
+
+    private Path memoryFile() {
+        return paths.currentDataDirectory().resolve("memory.json");
     }
 
     public record MemoryRecord(String id, String goal, String outcome, String summary, String createdAt) { }

@@ -1,5 +1,5 @@
 server:
-  address: 127.0.0.1
+  address: ${AGENTOS_SERVER_ADDRESS:127.0.0.1}
   port: ${AGENTOS_BACKEND_PORT:8080}
   shutdown: graceful
 
@@ -15,11 +15,18 @@ spring:
 
 agentos:
   ollama-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
-  default-model: ${OLLAMA_MODEL:qwen2.5}
+  default-model: ${OLLAMA_MODEL:qwen3.5:9b}
+  model-thinking: ${AGENTOS_MODEL_THINKING:medium}
+  context-tokens: ${AGENTOS_CONTEXT_TOKENS:0}
+  temperature: ${AGENTOS_TEMPERATURE:0.3}
   workspace-path: ${AGENTOS_WORKSPACE_PATH:}
   desktop-path: ${AGENTOS_DESKTOP_PATH:}
   data-dir: ${AGENTOS_DATA_DIR:}
   request-timeout-seconds: ${AGENTOS_LLM_TIMEOUT_SECONDS:120}
+  auth:
+    mode: ${AGENTOS_AUTH_MODE:local}
+    tenant-keys: ${AGENTOS_TENANT_KEYS:}
+    tool-grants: ${AGENTOS_TOOL_GRANTS:}
 
 logging:
   level:

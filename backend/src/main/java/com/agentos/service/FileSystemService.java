@@ -20,26 +20,34 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.agentos.config.AppPaths;
+import com.agentos.security.AgentOsAccessPolicy;
 
 @Service
 public class FileSystemService {
     private static final int MAX_READ_BYTES = 4 * 1024 * 1024;
     private static final int MAX_WRITE_BYTES = 8 * 1024 * 1024;
     private static final int MAX_SEARCH_RESULTS = 500;
-    private final Path workspace;
-    private final Path desktop;
+    private final AppPaths paths;
+    private final Path fixedWorkspace;
+    private final Path fixedDesktop;
+    private final AgentOsAccessPolicy accessPolicy;
 
     @Autowired
-    public FileSystemService(AppPaths paths) {
-        this(paths.workspace(), paths.desktop());
+    public FileSystemService(AppPaths paths, AgentOsAccessPolicy accessPolicy) {
+        this.paths = paths;
+        this.fixedWorkspace = null;
+        this.fixedDesktop = null;
+        this.accessPolicy = accessPolicy;
     }
 
     public FileSystemService(Path workspace, Path desktop) {
-        this.workspace = workspace.toAbsolutePath().normalize();
-        this.desktop = desktop.toAbsolutePath().normalize();
+        this.paths = null;
+        this.fixedWorkspace = workspace.toAbsolutePath().normalize();
+        this.fixedDesktop = desktop.toAbsolutePath().normalize();
+        this.accessPolicy = null;
         try {
-            Files.createDirectories(this.workspace);
-            Files.createDirectories(this.desktop);
+            Files.createDirectories(this.fixedWorkspace);
+            Files.createDirectories(this.fixedDesktop);
         } catch (IOException exception) {
             throw new IllegalStateException("AgentOS could not initialize its allowed filesystem roots.", exception);
         }
@@ -189,10 +197,17 @@ public class FileSystemService {
     }
 
     public List<String> roots() {
-        return List.of(workspace.toString(), desktop.toString());
+        if (paths != null && paths.tenantMode()) return List.of(workspaceRoot().toString());
+        return List.of(workspaceRoot().toString(), desktopRoot().toString());
     }
 
     public List<Map<String, Object>> tools() {
+        return allTools().stream()
+                .filter(tool -> accessPolicy == null || accessPolicy.isAllowed("filesystem." + tool.get("name")))
+                .toList();
+    }
+
+    public List<Map<String, Object>> allTools() {
         return List.of(
                 tool("list_directory", "List files and folders in workspace/ or Desktop/", Map.of("path", "string"), List.of("path")),
                 tool("create_directory", "Create a folder in workspace/ or Desktop/", Map.of("name", "string"), List.of("name")),
@@ -206,6 +221,7 @@ public class FileSystemService {
     }
 
     public ToolOutput execute(String tool, Map<String, Object> input) throws IOException {
+        if (accessPolicy != null) accessPolicy.require("filesystem." + tool);
         String path = optionalStringValue(input, "path");
         return switch (tool) {
             case "list_directory" -> new ToolOutput(listDirectory(defaultValue(path, ".")), null);
@@ -225,11 +241,15 @@ public class FileSystemService {
         if (input == null || input.isBlank()) throw new IllegalArgumentException("Path cannot be empty.");
         String normalized = input.replace('\\', '/').replaceFirst("^\\./", "");
         boolean isDesktop = normalized.matches("(?i)^desktop(?:/.*)?$");
+        if (isDesktop && paths != null && paths.tenantMode()) {
+            throw new IllegalArgumentException("Desktop access is available only to a locally running AgentOS instance.");
+        }
         String relative = isDesktop ? normalized.replaceFirst("(?i)^desktop/?", "") : normalized;
         if (relative.matches("^[A-Za-z]:.*") || relative.startsWith("/") || relative.startsWith("//")) {
             throw new IllegalArgumentException("Access denied: use a path inside workspace/ or Desktop/.");
         }
-        Path root = (isDesktop ? desktop : workspace).toAbsolutePath().normalize();
+        Path root = (isDesktop ? desktopRoot() : workspaceRoot()).toAbsolutePath().normalize();
+        Files.createDirectories(root);
         Path candidate = root.resolve(relative).normalize();
         if (!candidate.startsWith(root)) throw new IllegalArgumentException("Access denied: use a path inside workspace/ or Desktop/.");
         Path realRoot = resolveMissingSegments(root);
@@ -240,6 +260,14 @@ public class FileSystemService {
         String alias = isDesktop ? "Desktop" : ".";
         if (!relative.isBlank() && !relative.equals(".")) alias = alias + "/" + relative.replaceAll("^/+", "");
         return new Resolved(root, candidate, alias, isDesktop);
+    }
+
+    private Path workspaceRoot() {
+        return paths == null ? fixedWorkspace : paths.currentWorkspace();
+    }
+
+    private Path desktopRoot() {
+        return paths == null ? fixedDesktop : paths.desktop();
     }
 
     private static Path resolveMissingSegments(Path path) throws IOException {

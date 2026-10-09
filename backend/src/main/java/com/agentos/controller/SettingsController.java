@@ -11,25 +11,31 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.agentos.service.OllamaService;
 import com.agentos.service.SettingsService;
+import com.agentos.security.AgentOsAccessPolicy;
+import com.agentos.security.ToolPermissionDeniedException;
 
 @RestController
 @RequestMapping("/api/settings")
 public class SettingsController {
     private final OllamaService ollama;
     private final SettingsService settings;
+    private final AgentOsAccessPolicy accessPolicy;
 
-    public SettingsController(OllamaService ollama, SettingsService settings) {
+    public SettingsController(OllamaService ollama, SettingsService settings, AgentOsAccessPolicy accessPolicy) {
         this.ollama = ollama;
         this.settings = settings;
+        this.accessPolicy = accessPolicy;
     }
 
     @GetMapping
     public Map<String, Object> get() {
-        return Map.of("success", true, "model", settings.getSelectedModel(ollama.defaultModel()), "baseUrl", ollama.baseUrl());
+        return Map.of("success", true, "model", settings.getSelectedModel(ollama.defaultModel()),
+                "baseUrl", accessPolicy.tenantMode() ? "configured model service" : ollama.baseUrl());
     }
 
     @PostMapping
     public Map<String, Object> set(@RequestBody Map<String, Object> body) {
+        if (accessPolicy.tenantMode()) throw new ToolPermissionDeniedException("shared model settings");
         Object rawModel = body.get("model");
         if (!(rawModel instanceof String model) || model.isBlank()) throw new IllegalArgumentException("Choose an installed Ollama model.");
         List<String> available = ollama.listModels();

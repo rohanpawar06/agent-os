@@ -10,7 +10,7 @@ import { CapabilitiesPage, MemoryPage, SecurityPage, SettingsPage } from "@/comp
 import { FileExplorer } from "@/components/pages/file-explorer";
 import { OverviewPage } from "@/components/pages/overview-page";
 import { TaskWorkspace } from "@/components/tasks/task-workspace";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAgentStore, useEventStore, useTaskStore } from "@/stores";
 import type { WorkspaceView } from "@/types/workspace";
 
@@ -20,33 +20,38 @@ interface StatusResponse {
   ollama: { connected: boolean; modelAvailable: boolean };
   filesystem: { connected: boolean; tools: Array<{ name: string; description: string; inputSchema?: Record<string, unknown> }> };
   memory: { connected: boolean };
+  capabilities: Array<{
+    id: string;
+    name: string;
+    description: string;
+    configuration?: string;
+    status: "available" | "permission_required" | "requires_connector";
+    tools: Array<{ name: string; description: string; enabled?: boolean; permission?: string; status?: "requires_connector" | "available"; inputSchema?: Record<string, unknown> }>;
+    enabledToolCount?: number;
+  }>;
 }
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState<WorkspaceView>("agent");
 
   useEffect(() => {
-    void useAgentStore.persist.rehydrate();
-    void useEventStore.persist.rehydrate();
-    void useTaskStore.persist.rehydrate();
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
-    void fetch(apiUrl("/api/status"), { cache: "no-store" })
+    void apiFetch("/api/status", { cache: "no-store" })
       .then(async (response) => {
         const status = await response.json() as StatusResponse;
         if (!response.ok || !status.success) throw new Error("AgentOS backend is unavailable.");
         if (cancelled) return;
+        await Promise.all([
+          useAgentStore.persist.rehydrate(),
+          useEventStore.persist.rehydrate(),
+          useTaskStore.persist.rehydrate(),
+        ]);
+        if (cancelled) return;
         const store = useAgentStore.getState();
-        store.setCapabilities(status.filesystem.tools.length ? [{
-          id: "filesystem-mcp",
-          name: "Filesystem",
-          description: "Workspace and Desktop file operations provided by the Spring Boot backend.",
-          status: status.filesystem.connected ? "connected" : "error",
-          type: "mcp",
-          tools: status.filesystem.tools,
-        }] : []);
+        store.setCapabilities(status.capabilities.map((capability) => ({
+          ...capability,
+          type: "builtin" as const,
+        })));
         store.setRuntime({
           reasoning: status.ollama.connected && status.ollama.modelAvailable ? "ready" : "error",
           memory: status.memory.connected ? "connected" : "error",
@@ -57,6 +62,9 @@ export default function HomePage() {
       })
       .catch(() => {
         if (!cancelled) {
+          useAgentStore.setState({ capabilities: [] });
+          useEventStore.getState().clearEvents();
+          useTaskStore.setState({ tasks: [], activeTaskId: null });
           useAgentStore.getState().setRuntime({ reasoning: "error", mcp: "error" });
           useAgentStore.getState().setAgentStatus("offline");
         }

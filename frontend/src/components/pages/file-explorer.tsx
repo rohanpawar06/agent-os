@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { PageShell } from "./page-shell";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 type FileEntry = { name: string; type: "directory" | "file"; path?: string };
 type ListingData = { path: string; entries: FileEntry[] };
@@ -53,7 +53,7 @@ export function FileExplorer() {
     setNotice("");
     setIsSearching(false);
     try {
-      const response = await fetch(apiUrl(`/api/files?path=${encodeURIComponent(path)}`), { cache: "no-store" });
+      const response = await apiFetch(`/api/files?path=${encodeURIComponent(path)}`, { cache: "no-store" });
       const result = await response.json() as ApiResponse;
       if (!response.ok || !result.success) throw new Error(result.error ?? "Could not read this folder.");
       const data = result.data as ListingData;
@@ -76,7 +76,7 @@ export function FileExplorer() {
   const crumbSegments = currentPath.startsWith("Desktop") ? breadcrumbs.slice(1) : breadcrumbs.filter((crumb) => crumb !== "Workspace");
 
   async function callAction(action: FileAction, fields: Record<string, unknown>): Promise<ApiResponse> {
-    const response = await fetch(apiUrl("/api/files"), {
+    const response = await apiFetch("/api/files", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action, ...fields }),

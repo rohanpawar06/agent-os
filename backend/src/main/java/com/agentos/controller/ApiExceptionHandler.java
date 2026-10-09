@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.agentos.service.OllamaService.OllamaUnavailableException;
+import com.agentos.security.ToolPermissionDeniedException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -25,6 +26,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(OllamaUnavailableException.class)
     public ResponseEntity<Map<String, Object>> modelUnavailable(OllamaUnavailableException exception) {
         return response(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
+    }
+
+    @ExceptionHandler(ToolPermissionDeniedException.class)
+    public ResponseEntity<Map<String, Object>> permissionDenied(ToolPermissionDeniedException exception) {
+        return response(HttpStatus.FORBIDDEN, exception.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

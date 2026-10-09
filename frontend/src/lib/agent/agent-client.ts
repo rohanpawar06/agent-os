@@ -2,7 +2,7 @@ import { useAgentStore, useEventStore } from "@/stores";
 import type { AgentEvent, Capability, ChatMessage } from "@/types";
 import type { AgentTask, TaskStep, TaskStepStatus } from "@/types/task";
 import { useTaskStore } from "@/stores";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 interface AgentResponse {
   success: boolean;
@@ -10,7 +10,7 @@ interface AgentResponse {
   answer?: string;
   error?: string;
   model?: string;
-  capabilities?: Array<{ name: string; description: string }>;
+  capabilities?: Array<{ name: string; description: string; capability?: string; enabled?: boolean; permission?: string; inputSchema?: Record<string, unknown> }>;
   requestId?: string;
   plan?: Array<{
     id: string;
@@ -64,12 +64,12 @@ export async function runAgentRequest(userInput: string): Promise<void> {
   store.setChatLoading(true);
   store.setAgentStatus("thinking");
   store.setRuntime({ reasoning: "active" });
-  eventStore.addEvent(event("agent.thinking", { message: "Sending your request to the local model." }));
+  eventStore.addEvent(event("agent.thinking", { message: "Sending your request to the configured model." }));
   const controller = new AbortController();
   activeRequest = controller;
 
   try {
-    const response = await fetch(apiUrl("/api/chat"), {
+    const response = await apiFetch("/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message: userInput, history: previousMessages }),
@@ -134,22 +134,29 @@ export async function runAgentRequest(userInput: string): Promise<void> {
   }
 }
 
-function updateCapabilities(tools: Array<{ name: string; description: string; inputSchema?: Record<string, unknown> }>): void {
+function updateCapabilities(tools: Array<{ name: string; description: string; capability?: string; enabled?: boolean; permission?: string; inputSchema?: Record<string, unknown> }>): void {
+  const existing = useAgentStore.getState().capabilities;
+  if (existing.length >= 10) return;
   const uniqueTools = [...new Map(tools.map((tool) => [tool.name, tool])).values()];
-  const capabilities: Capability[] = uniqueTools.length
-    ? [{
-        id: "filesystem-mcp",
-        name: "Filesystem MCP",
-        description: "Workspace file and folder operations.",
-        status: "connected",
-        type: "mcp",
-        tools: uniqueTools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
-      }]
-    : [];
+  const grouped = new Map<string, typeof uniqueTools>();
+  for (const tool of uniqueTools) {
+    const group = tool.capability ?? "filesystem";
+    grouped.set(group, [...(grouped.get(group) ?? []), tool]);
+  }
+  const labels: Record<string, string> = { filesystem: "Files & folders", documents: "Documents", spreadsheets: "Spreadsheets" };
+  const capabilities: Capability[] = [...grouped.entries()].map(([id, groupTools]) => ({
+    id,
+    name: labels[id] ?? id,
+    description: `${labels[id] ?? id} operations available to this account.`,
+    status: "available",
+    type: "builtin",
+    tools: groupTools.map(({ name, description, inputSchema, enabled, permission }) => ({ name, description, inputSchema, enabled, permission })),
+    enabledToolCount: groupTools.filter((tool) => tool.enabled !== false).length,
+  }));
   useAgentStore.getState().setCapabilities(capabilities);
 }
 
-export function installCapabilities(tools: Array<{ name: string; description: string; inputSchema?: Record<string, unknown> }>): void {
+export function installCapabilities(tools: Array<{ name: string; description: string; capability?: string; enabled?: boolean; permission?: string; inputSchema?: Record<string, unknown> }>): void {
   updateCapabilities(tools);
 }
 
@@ -205,7 +212,7 @@ function recordTask(userInput: string, result: AgentResponse): void {
     progress: steps.length ? Math.round((completed / steps.length) * 100) : result.success ? 100 : 0,
     steps,
     artifacts,
-    workspace: "AgentOS local workspace",
+    workspace: "AgentOS workspace",
     ...(!result.success ? { error: result.answer } : {}),
   };
   useTaskStore.getState().createTask(task);

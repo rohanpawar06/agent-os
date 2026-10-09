@@ -1,0 +1,55 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      AGENTOS_SERVER_ADDRESS: 0.0.0.0
+      AGENTOS_BACKEND_PORT: 8080
+      AGENTOS_AUTH_MODE: tenant
+      AGENTOS_TENANT_KEYS: ${AGENTOS_TENANT_KEYS:?Set API key hashes in .env}
+      AGENTOS_TOOL_GRANTS: ${AGENTOS_TOOL_GRANTS:?Set per-user tool grants in .env}
+      AGENTOS_DATA_DIR: /data
+      AGENTOS_FRONTEND_ORIGINS: ${AGENTOS_PUBLIC_ORIGIN:-http://localhost:3000}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:9b}
+      AGENTOS_MODEL_THINKING: ${AGENTOS_MODEL_THINKING:-medium}
+      AGENTOS_CONTEXT_TOKENS: ${AGENTOS_CONTEXT_TOKENS:-0}
+      AGENTOS_TEMPERATURE: ${AGENTOS_TEMPERATURE:-0.3}
+    volumes:
+      - agentos-data:/data
+    depends_on:
+      - ollama
+    expose:
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        AGENTOS_BACKEND_URL: http://backend:8080
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  agentos-data:
+  ollama-data:

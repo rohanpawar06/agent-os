@@ -2,13 +2,18 @@ export type CapabilityStatus =
   | "available"
   | "connected"
   | "disconnected"
-  | "error";
+  | "error"
+  | "permission_required"
+  | "requires_connector";
 
 export interface ToolDefinition {
   name: string;
   description: string;
 
   inputSchema?: Record<string, unknown>;
+  enabled?: boolean;
+  permission?: string;
+  status?: CapabilityStatus;
 }
 
 export interface Capability {
@@ -27,6 +32,10 @@ export interface Capability {
     | "model";
 
   tools: ToolDefinition[];
+
+  configuration?: string;
+
+  enabledToolCount?: number;
 
   metadata?: Record<string, unknown>;
 }

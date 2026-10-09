@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 import type {
   AgentTask,
@@ -9,6 +9,7 @@ import type {
   TaskStep,
   TaskStepStatus,
 } from "@/types/task";
+import { getAgentOsBrowserStorage } from "@/lib/api";
 
 interface TaskStore {
   tasks: AgentTask[];
@@ -169,6 +170,7 @@ export const useTaskStore =
     },
   }), {
     name: "agentos-task-state",
+    storage: createJSONStorage(() => getAgentOsBrowserStorage()),
     partialize: (state) => ({ tasks: state.tasks, activeTaskId: state.activeTaskId }),
     skipHydration: true,
   }));
