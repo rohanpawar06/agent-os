@@ -19,14 +19,16 @@ public class ToolDispatchService {
     private final FileSystemService fileSystem;
     private final DocumentService documents;
     private final SpreadsheetService spreadsheets;
+    private final WebSearchService webSearch;
     private final AgentOsAccessPolicy accessPolicy;
 
     @Autowired
     public ToolDispatchService(FileSystemService fileSystem, DocumentService documents, SpreadsheetService spreadsheets,
-                              AgentOsAccessPolicy accessPolicy) {
+                              WebSearchService webSearch, AgentOsAccessPolicy accessPolicy) {
         this.fileSystem = fileSystem;
         this.documents = documents;
         this.spreadsheets = spreadsheets;
+        this.webSearch = webSearch;
         this.accessPolicy = accessPolicy;
     }
 
@@ -35,6 +37,7 @@ public class ToolDispatchService {
         this.fileSystem = fileSystem;
         this.documents = null;
         this.spreadsheets = null;
+        this.webSearch = null;
         this.accessPolicy = null;
     }
 
@@ -43,6 +46,7 @@ public class ToolDispatchService {
         fileSystem.allTools().forEach(tool -> addEnabled(definitions, "filesystem", tool));
         if (documents != null) documents.allTools().forEach(tool -> addEnabled(definitions, "documents", tool));
         if (spreadsheets != null) spreadsheets.allTools().forEach(tool -> addEnabled(definitions, "spreadsheets", tool));
+        if (webSearch != null) webSearch.allTools().forEach(tool -> addEnabled(definitions, "web", tool));
         return definitions.stream().filter(tool -> Boolean.TRUE.equals(tool.get("enabled"))).toList();
     }
 
@@ -55,7 +59,12 @@ public class ToolDispatchService {
         fileSystem.allTools().forEach(tool -> addEnabled(definitions, "filesystem", tool));
         if (documents != null) documents.allTools().forEach(tool -> addEnabled(definitions, "documents", tool));
         if (spreadsheets != null) spreadsheets.allTools().forEach(tool -> addEnabled(definitions, "spreadsheets", tool));
+        if (webSearch != null) webSearch.allTools().forEach(tool -> addEnabled(definitions, "web", tool));
         return List.copyOf(definitions);
+    }
+
+    public boolean webSearchConfigured() {
+        return webSearch != null && webSearch.configured();
     }
 
     public boolean supports(String name) {
@@ -66,6 +75,7 @@ public class ToolDispatchService {
         if (FILE_TOOLS.contains(name)) return fileSystem.execute(name, input);
         if (documents != null && documents.allTools().stream().anyMatch(tool -> name.equals(tool.get("name")))) return documents.execute(name, input);
         if (spreadsheets != null && spreadsheets.allTools().stream().anyMatch(tool -> name.equals(tool.get("name")))) return spreadsheets.execute(name, input);
+        if (webSearch != null && "search_web".equals(name)) return webSearch.search(input);
         throw new IllegalArgumentException("Unsupported AgentOS tool: " + name);
     }
 
@@ -74,7 +84,8 @@ public class ToolDispatchService {
         Map<String, Object> item = new LinkedHashMap<>(definition);
         item.put("capability", capability);
         item.put("permission", capability + "." + name);
-        item.put("enabled", accessPolicy == null || accessPolicy.isAllowed(capability + "." + name));
+        boolean permissionGranted = accessPolicy == null || accessPolicy.isAllowed(capability + "." + name);
+        item.put("enabled", permissionGranted && (!"web".equals(capability) || webSearchConfigured()));
         output.add(Map.copyOf(item));
     }
 }

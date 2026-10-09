@@ -31,8 +31,11 @@ public class CapabilityCatalogService {
         catalog.add(implemented("filesystem", "Files & folders", "List, read, write, search, copy, move, and delete within your assigned workspace.", "Workspace root is isolated per account. Desktop access is available only in local mode.", implemented));
         catalog.add(implemented("documents", "Documents", "Create and edit plain text and Markdown files in your workspace.", "Supports .txt, .md, and .markdown files.", implemented));
         catalog.add(implemented("spreadsheets", "Spreadsheets", "Create, read, append, and filter CSV spreadsheets.", "CSV only; large reads are bounded to a safe preview.", implemented));
-        catalog.add(connector("web", "Web search", "Search public web pages and read selected results.", "Requires a configured search provider adapter and per-user grant.",
-                List.of("search_web", "read_web_page")));
+        Map<String, Object> webSearch = new LinkedHashMap<>(implemented("web", "Web search",
+                "Search public web pages for current information and cite the returned sources.",
+                "Set OLLAMA_API_KEY and grant web.search_web to each account that may use live search. Queries are sent to Ollama's hosted search API.", implemented));
+        if (!tools.webSearchConfigured()) webSearch.put("status", "requires_configuration");
+        catalog.add(Map.copyOf(webSearch));
         catalog.add(connector("browser", "Browser control", "Operate a browser running on a user's own computer.", "Requires a paired local AgentOS companion; the cloud server cannot reach a user's laptop.",
                 List.of("open_browser_page", "capture_browser_page", "click_browser_element")));
         catalog.add(connector("terminal", "Terminal", "Run approved commands on a user's own computer.", "Requires a local companion and explicit command allowlist; arbitrary shell execution is not exposed by the cloud server.",

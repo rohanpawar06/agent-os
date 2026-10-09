@@ -19,6 +19,8 @@ agentos:
   model-thinking: ${AGENTOS_MODEL_THINKING:medium}
   context-tokens: ${AGENTOS_CONTEXT_TOKENS:0}
   temperature: ${AGENTOS_TEMPERATURE:0.3}
+  web-search:
+    api-key: ${OLLAMA_API_KEY:}
   workspace-path: ${AGENTOS_WORKSPACE_PATH:}
   desktop-path: ${AGENTOS_DESKTOP_PATH:}
   data-dir: ${AGENTOS_DATA_DIR:}

@@ -13,7 +13,7 @@ The capability registry shows ten top-level families and the real status of thei
 | Files & folders | List, read, create, write, search, copy, move, and delete inside the assigned roots |
 | Documents | Create, read, append, and replace text in `.txt`, `.md`, and `.markdown` files |
 | Spreadsheets | Create, read, append, and filter `.csv` files |
-| Web search | Requires a search-provider adapter |
+| Web search | Search public web pages through Ollama's hosted search API; optional API key and per-user grant required |
 | Browser control | Requires a paired local companion; cloud servers cannot access a user's laptop |
 | Terminal | Requires a local companion and an explicit command allowlist |
 | Databases | Requires a per-user database connector and least-privilege credentials |
@@ -21,7 +21,7 @@ The capability registry shows ten top-level families and the real status of thei
 | Calendar | Requires a per-user OAuth connector |
 | API integrations | Requires an implemented connector and per-user host allowlist |
 
-The first three families execute in this build. The remaining seven appear as `Connector required` until their provider or local-runner adapters are implemented; entering credentials alone does not activate an unimplemented connector. No arbitrary shell command, browser, email, database, or external-URL call is exposed by the cloud server.
+Files, documents, spreadsheets, and optional web search execute in this build. The remaining six appear as `Connector required` until their provider or local-runner adapters are implemented; entering credentials alone does not activate an unimplemented connector. No arbitrary shell command, browser, email, database, or external-URL call is exposed by the cloud server.
 
 ## Local development
 
@@ -34,7 +34,7 @@ npm run dev
 
 For stronger answers, choose a tool-capable model that fits the computer's available memory, install it with Ollama, then set `OLLAMA_MODEL` to its installed name. Qwen3.5 is one option supported by current Ollama releases; larger variants generally need more memory. AgentOS passes configurable thinking to supported Qwen3 and DeepSeek-R1 models. Set `AGENTOS_CONTEXT_TOKENS` only when the machine has enough memory for the larger context. No model is downloaded automatically by AgentOS. Before I install or download a model for you, provide the absolute folder where Ollama should store it.
 
-More capable local models can improve reasoning and instruction following. They do not provide live web facts by themselves: web search remains a connector that must be implemented and configured in this build.
+More capable local models can improve reasoning and instruction following. They do not provide live web facts by themselves. To enable current web search, create an Ollama account/API key, set `OLLAMA_API_KEY`, and grant `web.search_web` to the intended tenant. This uses Ollama's hosted search API: search queries are sent to Ollama, while chat and file operations remain local. Leave the key empty to keep web search disabled. See the [Ollama web-search documentation](https://github.com/ollama/ollama/blob/main/docs/capabilities/web-search.mdx).
 
 Open the address printed by the launcher in Brave or another browser. The local profile binds the Spring API to `127.0.0.1`, does not require an API key, and may use the current computer's Desktop. The startup guard prevents local mode from binding to a public network interface.
 
@@ -51,6 +51,7 @@ The Compose deployment runs the UI, Spring API, and Ollama. Only the UI port is 
 
    Give the returned `token` to that user privately. Put only its `sha256` value in `AGENTOS_TENANT_KEYS` in `.env`.
 3. Add that user's allowed tool names to `AGENTOS_TOOL_GRANTS`. Grants default to deny. Avoid granting delete operations unless the account needs them.
+   To allow live web search, set `OLLAMA_API_KEY` and add `web.search_web` to that user's grant list.
 4. Start the deployment and install the model:
 
    ```powershell
@@ -78,7 +79,7 @@ All `/api/**` routes require `Authorization: Bearer <tenant-api-key>` in tenant 
 
 | Endpoint | Methods | Purpose |
 | --- | --- | --- |
-| `/api/chat` | POST | Chat and execute enabled filesystem, document, and spreadsheet tools |
+| `/api/chat` | POST | Chat and execute enabled filesystem, document, spreadsheet, and optional web-search tools |
 | `/api/files` | GET, POST | Browse and manage allowed files and folders |
 | `/api/tools/{name}` | POST | Execute an enabled document or spreadsheet operation |
 | `/api/status` | GET | Model health, ten-family capability registry, and security mode |
