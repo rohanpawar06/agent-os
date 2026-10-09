@@ -46,8 +46,14 @@ public class CapabilityCatalogService {
                 List.of("search_email", "create_email_draft", "send_email")));
         catalog.add(connector("calendar", "Calendar", "Read and manage calendar events.", "Requires a per-user calendar OAuth connection.",
                 List.of("list_calendar_events", "create_calendar_event", "update_calendar_event")));
-        catalog.add(connector("integrations", "API integrations", "Connect to an approved external service.", "Requires a configured host allowlist and per-user credentials; arbitrary URLs are blocked to prevent SSRF.",
-                List.of("call_approved_api", "read_api_result")));
+        if (tools.apiIntegrationsConfigured()) {
+            catalog.add(implemented("integrations", "API integrations", "Call the HTTPS API operations configured for this account.",
+                    "Services, paths, methods, query parameter names, and headers are configured by the deployment administrator per tenant. Arbitrary URLs and redirects are blocked.", implemented));
+        } else {
+            catalog.add(connector("integrations", "API integrations", "Connect to administrator-approved external API operations.",
+                    "Set AGENTOS_API_CONNECTORS with per-tenant HTTPS services and explicitly allowed operations, then grant integrations.call_approved_api. Arbitrary URLs are blocked.",
+                    List.of("call_approved_api")));
+        }
         return List.copyOf(catalog);
     }
 

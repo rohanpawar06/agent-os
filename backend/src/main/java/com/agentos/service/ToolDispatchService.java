@@ -20,15 +20,18 @@ public class ToolDispatchService {
     private final DocumentService documents;
     private final SpreadsheetService spreadsheets;
     private final WebSearchService webSearch;
+    private final ApiIntegrationService apiIntegrations;
     private final AgentOsAccessPolicy accessPolicy;
 
     @Autowired
     public ToolDispatchService(FileSystemService fileSystem, DocumentService documents, SpreadsheetService spreadsheets,
-                              WebSearchService webSearch, AgentOsAccessPolicy accessPolicy) {
+                              WebSearchService webSearch, ApiIntegrationService apiIntegrations,
+                              AgentOsAccessPolicy accessPolicy) {
         this.fileSystem = fileSystem;
         this.documents = documents;
         this.spreadsheets = spreadsheets;
         this.webSearch = webSearch;
+        this.apiIntegrations = apiIntegrations;
         this.accessPolicy = accessPolicy;
     }
 
@@ -38,6 +41,7 @@ public class ToolDispatchService {
         this.documents = null;
         this.spreadsheets = null;
         this.webSearch = null;
+        this.apiIntegrations = null;
         this.accessPolicy = null;
     }
 
@@ -47,6 +51,7 @@ public class ToolDispatchService {
         if (documents != null) documents.allTools().forEach(tool -> addEnabled(definitions, "documents", tool));
         if (spreadsheets != null) spreadsheets.allTools().forEach(tool -> addEnabled(definitions, "spreadsheets", tool));
         if (webSearch != null) webSearch.allTools().forEach(tool -> addEnabled(definitions, "web", tool));
+        if (apiIntegrations != null) apiIntegrations.allTools().forEach(tool -> addEnabled(definitions, "integrations", tool));
         return definitions.stream().filter(tool -> Boolean.TRUE.equals(tool.get("enabled"))).toList();
     }
 
@@ -60,11 +65,16 @@ public class ToolDispatchService {
         if (documents != null) documents.allTools().forEach(tool -> addEnabled(definitions, "documents", tool));
         if (spreadsheets != null) spreadsheets.allTools().forEach(tool -> addEnabled(definitions, "spreadsheets", tool));
         if (webSearch != null) webSearch.allTools().forEach(tool -> addEnabled(definitions, "web", tool));
+        if (apiIntegrations != null) apiIntegrations.allTools().forEach(tool -> addEnabled(definitions, "integrations", tool));
         return List.copyOf(definitions);
     }
 
     public boolean webSearchConfigured() {
         return webSearch != null && webSearch.configured();
+    }
+
+    public boolean apiIntegrationsConfigured() {
+        return apiIntegrations != null && apiIntegrations.configuredForCurrentTenant();
     }
 
     public boolean supports(String name) {
@@ -76,6 +86,7 @@ public class ToolDispatchService {
         if (documents != null && documents.allTools().stream().anyMatch(tool -> name.equals(tool.get("name")))) return documents.execute(name, input);
         if (spreadsheets != null && spreadsheets.allTools().stream().anyMatch(tool -> name.equals(tool.get("name")))) return spreadsheets.execute(name, input);
         if (webSearch != null && "search_web".equals(name)) return webSearch.search(input);
+        if (apiIntegrations != null && "call_approved_api".equals(name)) return apiIntegrations.call(input);
         throw new IllegalArgumentException("Unsupported AgentOS tool: " + name);
     }
 
@@ -85,7 +96,12 @@ public class ToolDispatchService {
         item.put("capability", capability);
         item.put("permission", capability + "." + name);
         boolean permissionGranted = accessPolicy == null || accessPolicy.isAllowed(capability + "." + name);
-        item.put("enabled", permissionGranted && (!"web".equals(capability) || webSearchConfigured()));
+        boolean configured = switch (capability) {
+            case "web" -> webSearchConfigured();
+            case "integrations" -> apiIntegrationsConfigured();
+            default -> true;
+        };
+        item.put("enabled", permissionGranted && configured);
         output.add(Map.copyOf(item));
     }
 }

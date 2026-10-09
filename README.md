@@ -19,9 +19,9 @@ The capability registry shows ten top-level families and the real status of thei
 | Databases | Requires a per-user database connector and least-privilege credentials |
 | Email | Requires a per-user OAuth connector |
 | Calendar | Requires a per-user OAuth connector |
-| API integrations | Requires an implemented connector and per-user host allowlist |
+| API integrations | Call administrator-configured HTTPS operations with per-user credentials and grants |
 
-Files, documents, spreadsheets, and optional web search execute in this build. The remaining six appear as `Connector required` until their provider or local-runner adapters are implemented; entering credentials alone does not activate an unimplemented connector. No arbitrary shell command, browser, email, database, or external-URL call is exposed by the cloud server.
+Files, documents, spreadsheets, optional web search, and configured API integrations execute in this build. The remaining five appear as `Connector required` until their provider or local-runner adapters are implemented; entering credentials alone does not activate an unimplemented connector. No arbitrary shell command, browser, email, database, or arbitrary-URL call is exposed by the cloud server.
 
 ## Local development
 
@@ -52,6 +52,7 @@ The Compose deployment runs the UI, Spring API, and Ollama. Only the UI port is 
    Give the returned `token` to that user privately. Put only its `sha256` value in `AGENTOS_TENANT_KEYS` in `.env`.
 3. Add that user's allowed tool names to `AGENTOS_TOOL_GRANTS`. Grants default to deny. Avoid granting delete operations unless the account needs them.
    To allow live web search, set `OLLAMA_API_KEY` and add `web.search_web` to that user's grant list.
+   To allow an approved API connector, add `integrations.call_approved_api` and configure only that tenant's services in `AGENTOS_API_CONNECTORS`.
 4. Start the deployment and install the model:
 
    ```powershell
@@ -71,6 +72,18 @@ AGENTOS_PUBLIC_ORIGIN=https://agentos.example.com
 
 Tenant workspaces and memories are stored under `/data/tenants/<tenant-id>` on the persistent `agentos-data` volume. Each API key is checked as a SHA-256 hash, each request is rate limited to 120 per minute per tenant, and cloud filesystem access cannot reach the server's Desktop. The Settings screen keeps the raw API key in that browser tab's session storage. Rotate a key by generating a new one and replacing its hash in `.env`.
 
+### Administrator-configured API integrations
+
+`AGENTOS_API_CONNECTORS` maps tenant IDs to named services. Each service has a fixed HTTPS `baseUrl`, optional fixed request `headers`, and an `operations` map. An operation fixes its HTTP method and relative path; optional `queryParams` explicitly allow query parameter names, and `bodyAllowed: true` enables a bounded JSON body. The tool accepts a service and operation name, never an arbitrary URL. Private/local hosts and redirects are rejected, request and response bodies are bounded, and configured headers are never exposed to the model. Store real credentials only in the deployment's private `.env` or secret manager.
+
+Example shape (replace the example host and credential before enabling it):
+
+```dotenv
+AGENTOS_API_CONNECTORS='{"rohan":{"weather":{"baseUrl":"https://api.example.com/v1","headers":{"Authorization":"Bearer replace-me"},"operations":{"current":{"method":"GET","path":"current","description":"Get current conditions","queryParams":["city"]}}}}}'
+```
+
+For local mode, use `local` as the tenant ID. Cloud mode requires an exact tenant ID that also has a key in `AGENTOS_TENANT_KEYS`; grant `integrations.call_approved_api` only to the accounts that need it.
+
 This Compose setup is a single-backend deployment. It supports multiple isolated accounts on one host; it is not a multi-replica or high-availability storage design. Back up the `agentos-data` and `ollama-data` volumes, restrict access to `.env`, and terminate TLS at the public edge.
 
 ## API
@@ -81,7 +94,7 @@ All `/api/**` routes require `Authorization: Bearer <tenant-api-key>` in tenant 
 | --- | --- | --- |
 | `/api/chat` | POST | Chat and execute enabled filesystem, document, spreadsheet, and optional web-search tools |
 | `/api/files` | GET, POST | Browse and manage allowed files and folders |
-| `/api/tools/{name}` | POST | Execute an enabled document or spreadsheet operation |
+| `/api/tools/{name}` | POST | Execute an enabled document, spreadsheet, or approved API operation |
 | `/api/status` | GET | Model health, ten-family capability registry, and security mode |
 | `/api/settings` | GET, POST | Inspect model settings; model changes are local-mode only |
 | `/api/memory` | GET, DELETE | Read or clear the current account's task memory |

@@ -447,6 +447,8 @@ public class ChatService {
             case "filter_spreadsheet" -> nonBlankText(input.get("path")) && nonBlankText(input.get("column")) && input.get("value") instanceof String;
             case "search_web" -> nonBlankText(input.get("query"))
                     && (input.get("max_results") == null || input.get("max_results") instanceof Number);
+            case "call_approved_api" -> nonBlankText(input.get("service")) && nonBlankText(input.get("operation"))
+                    && optionalObject(input.get("query")) && optionalObjectOrArray(input.get("body"));
             default -> false;
         };
     }
@@ -459,6 +461,14 @@ public class ChatService {
         return value == null || value instanceof String;
     }
 
+    private boolean optionalObject(Object value) {
+        return value == null || value instanceof Map<?, ?>;
+    }
+
+    private boolean optionalObjectOrArray(Object value) {
+        return value == null || value instanceof Map<?, ?> || value instanceof List<?>;
+    }
+
     private String describe(Action action, FileSystemService.ToolOutput output) {
         String path = string(action.input().get("path"));
         if (path == null) path = string(action.input().get("name"));
@@ -469,6 +479,7 @@ public class ChatService {
             case "list_directory" -> describeListing(output.data());
             case "search_files" -> describeSearch(output.data());
             case "search_web" -> describeWebSearch(output.data());
+            case "call_approved_api" -> "Approved API operation completed:\n\n" + objectMapper.valueToTree(output.data()).toString();
             case "create_directory" -> "Directory created successfully: " + path;
             case "write_file" -> "File written successfully: " + path;
             case "create_document" -> "Document created successfully: " + path;
@@ -520,12 +531,14 @@ public class ChatService {
             case "append_spreadsheet_row" -> "Append spreadsheet row";
             case "filter_spreadsheet" -> "Filter spreadsheet";
             case "search_web" -> "Search the web";
+            case "call_approved_api" -> "Call approved API";
             default -> tool;
         };
     }
 
     private String descriptionFor(String tool, Map<String, Object> input) {
         if ("search_web".equals(tool)) return String.valueOf(input.get("query"));
+        if ("call_approved_api".equals(tool)) return input.get("service") + "." + input.get("operation");
         Object path = input.getOrDefault("path", input.getOrDefault("name", input.get("destination")));
         return path instanceof String text ? text : "Perform " + tool;
     }

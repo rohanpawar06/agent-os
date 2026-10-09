@@ -21,6 +21,7 @@ agentos:
   temperature: ${AGENTOS_TEMPERATURE:0.3}
   web-search:
     api-key: ${OLLAMA_API_KEY:}
+  api-connectors: ${AGENTOS_API_CONNECTORS:}
   workspace-path: ${AGENTOS_WORKSPACE_PATH:}
   desktop-path: ${AGENTOS_DESKTOP_PATH:}
   data-dir: ${AGENTOS_DATA_DIR:}
